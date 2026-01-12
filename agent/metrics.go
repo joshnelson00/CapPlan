@@ -43,7 +43,7 @@ func getMetricList() {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		metricList := append(metricList, scanner.Text())
+		metricList = append(metricList, scanner.Text())
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -120,6 +120,7 @@ func main() {
 	time.Sleep(5 * time.Second)
 	defer shutdownServers(nodeServer, prometheusServer)
 
+	getMetricList()
 	getMetrics(v1api, ctx)
 	fmt.Println("Stored samples:")
 	for _, s := range samples {
