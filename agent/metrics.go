@@ -67,7 +67,7 @@ func cleanAndStoreMetrics(result model.Value) error {
 			Name:      labels["__name__"],
 			Labels:    labels,
 			Value:     float64(s.Value),
-			Timestamp: time.Unix(int64(s.Timestamp), 0),
+			Timestamp: s.Timestamp.Time(),
 		}
 
 		samples = append(samples, sample)
@@ -114,24 +114,14 @@ func main() {
 		"../prometheus/prometheus",
 		"--config.file=../prometheus/prometheus.yml",
 	)
-
 	nodeServer.Start()
 	prometheusServer.Start()
 	time.Sleep(5 * time.Second)
 	defer shutdownServers(nodeServer, prometheusServer)
 
+	// Get Metrics
 	getMetricList()
 	getMetrics(v1api, ctx)
-	fmt.Println("Stored samples:")
-	for _, s := range samples {
-		fmt.Printf(
-			"%s %v = %.0f @ %s\n",
-			s.Name,
-			s.Labels,
-			s.Value,
-			s.Timestamp.Format(time.RFC3339),
-		)
-	}
 
 	// Signal handling
 	sig := make(chan os.Signal, 1)
