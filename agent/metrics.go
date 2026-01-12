@@ -1,15 +1,25 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"net/http"
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
-	//"github.com/prometheus/client_golang/prometheus"
-	//"github.com/prometheus/client_golang/prometheus/promauto"
+	"time"
 )
+
+type MetricSample struct {
+	Name      string
+	Labels    map[string]string
+	Value     float64
+	Timestamp time.Time
+}
 
 func shutdownServers(node *exec.Cmd, prometheus *exec.Cmd) {
 	if node.Process != nil {
@@ -22,7 +32,45 @@ func shutdownServers(node *exec.Cmd, prometheus *exec.Cmd) {
 	}
 }
 
+func cleanAndStoreMetrics(result model.Value) error {
+	vector, ok := result.(model.Vector)
+	if !ok {
+		return fmt.Errorf("unexpected result type: %T", result)
+	}
+
+	for _, s := range vector {
+		labels := make(map[string]string)
+		for k, v := range s.Metric {
+			labels[string(k)] = string(v)
+		}
+
+		sample := MetricSample{
+			Name:      labels["__name__"],
+			Labels:    labels,
+			Value:     float64(s.Value),
+			Timestamp: time.Unix(int64(s.Timestamp), 0),
+		}
+
+		samples = append(samples, sample)
+	}
+
+	return nil
+}
+
+var samples []MetricSample
+
 func main() {
+	client, err := api.NewClient(api.Config{
+		Address: "http://localhost:9090",
+	})
+	if err != nil {
+		log.Fatalf("Error creating client: %v", err)
+	}
+
+	v1api := v1.NewAPI(client)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Start servers
 	nodeServer := exec.Command("../node_exporter/node_exporter")
 	prometheusServer := exec.Command(
@@ -32,33 +80,39 @@ func main() {
 
 	nodeServer.Start()
 	prometheusServer.Start()
+	time.Sleep(5 * time.Second)
 	defer shutdownServers(nodeServer, prometheusServer)
 
-	fmt.Println("Running Local HTTP Server...")
+	// PromQL query
+	query := "go_goroutines"
 
-	// HTTP server
-	httpServer := &http.Server{Addr: ":2112"}
+	result, warnings, err := v1api.Query(ctx, query, time.Now())
+	if err != nil {
+		log.Fatalf("Error querying Prometheus: %v", err)
+	}
+	if len(warnings) > 0 {
+		log.Printf("Warnings: %v\n", warnings)
+	}
 
-	http.HandleFunc("/metrics", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Println("Hello From Function 1!")
-	})
+	if err := cleanAndStoreMetrics(result); err != nil {
+		log.Fatalf("Failed to clean/store samples: %v", err)
+	}
+
+	fmt.Println("Stored samples:")
+	for _, s := range samples {
+		fmt.Printf(
+			"%s %v = %.0f @ %s\n",
+			s.Name,
+			s.Labels,
+			s.Value,
+			s.Timestamp.Format(time.RFC3339),
+		)
+	}
 
 	// Signal handling
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		<-sig
-		fmt.Println("\nShutting down...")
-		httpServer.Close() // unblocks ListenAndServe
-	}()
-
-	// Blocks until Close() is called
-	httpServer.ListenAndServe()
-
-	//NEXT STEPS
-	// 1. Request from http://localhost:9100/metrics
-	// 2. Automate the timing in between (user defined intervals in config or go. RESEARCH)
-	// 3. Print all content from request to the screen in formatted text (will handle business logic later)
-	// 4. Automate the Download of Node Exporter and Prometheus based on Distro/Architecture/
+	<-sig
+	fmt.Println("\nShutting down...")
 }
