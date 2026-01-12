@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"github.com/prometheus/client_golang/api"
@@ -32,6 +33,24 @@ func shutdownServers(node *exec.Cmd, prometheus *exec.Cmd) {
 	}
 }
 
+func getMetricList() {
+	file, err := os.Open("tracked-metrics.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		metricList := append(metricList, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func cleanAndStoreMetrics(result model.Value) error {
 	vector, ok := result.(model.Vector)
 	if !ok {
@@ -57,7 +76,25 @@ func cleanAndStoreMetrics(result model.Value) error {
 	return nil
 }
 
+func getMetrics(api v1.API, ctx context.Context) {
+	for i := 0; i < len(metricList); i++ {
+		query := metricList[i]
+		result, warnings, err := api.Query(ctx, query, time.Now())
+		if err != nil {
+			log.Fatalf("Error querying Prometheus: %v", err)
+		}
+		if len(warnings) > 0 {
+			log.Printf("Warnings: %v\n", warnings)
+		}
+
+		if err := cleanAndStoreMetrics(result); err != nil {
+			log.Fatalf("Failed to clean/store samples: %v", err)
+		}
+	}
+}
+
 var samples []MetricSample
+var metricList []string
 
 func main() {
 	client, err := api.NewClient(api.Config{
@@ -83,21 +120,7 @@ func main() {
 	time.Sleep(5 * time.Second)
 	defer shutdownServers(nodeServer, prometheusServer)
 
-	// PromQL query
-	query := "go_goroutines"
-
-	result, warnings, err := v1api.Query(ctx, query, time.Now())
-	if err != nil {
-		log.Fatalf("Error querying Prometheus: %v", err)
-	}
-	if len(warnings) > 0 {
-		log.Printf("Warnings: %v\n", warnings)
-	}
-
-	if err := cleanAndStoreMetrics(result); err != nil {
-		log.Fatalf("Failed to clean/store samples: %v", err)
-	}
-
+	getMetrics(v1api, ctx)
 	fmt.Println("Stored samples:")
 	for _, s := range samples {
 		fmt.Printf(
