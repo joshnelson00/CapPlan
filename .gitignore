@@ -11,6 +11,8 @@
 /prometheus/*
 /node_exporter/*
 /agent/data
+/migrations
+
 # Test binary, built with `go test -c`
 *.test
 

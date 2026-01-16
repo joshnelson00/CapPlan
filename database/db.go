@@ -72,36 +72,6 @@ func Close(db *Database) error {
 	return nil
 }
 
-// InitializeSchema creates the necessary tables if they don't exist
-func InitializeSchema(db *Database) error {
-	query := `
-	CREATE TABLE IF NOT EXISTS metrics (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		labels JSONB,
-		value DOUBLE PRECISION NOT NULL,
-		timestamp TIMESTAMPTZ NOT NULL,
-		created_at TIMESTAMPTZ DEFAULT NOW(),
-		INDEX idx_name (name),
-		INDEX idx_timestamp (timestamp),
-		INDEX idx_labels (labels)
-	);
-
-	CREATE TABLE IF NOT EXISTS metric_aggregates (
-		id SERIAL PRIMARY KEY,
-		metric_name VARCHAR(255) NOT NULL,
-		aggregate_type VARCHAR(50) NOT NULL,
-		value DOUBLE PRECISION NOT NULL,
-		start_time TIMESTAMPTZ NOT NULL,
-		end_time TIMESTAMPTZ NOT NULL,
-		created_at TIMESTAMPTZ DEFAULT NOW()
-	);
-	`
-
-	_, err := db.conn.Exec(query)
-	return err
-}
-
 // ImportMetricSamples imports MetricSample array directly into the database
 func ImportMetricSamples(db *Database, samples []MetricSample) error {
 	if len(samples) == 0 {
@@ -233,8 +203,3 @@ func RefreshMaterializedView(db *Database, viewName string) error {
 	// TODO: Implement materialized view refresh
 	return nil
 }
-
-// TODO LIST
-//  TODO: Connect Go/DB to Goose for Easy Migrations
-//  TODO: Set up a single function within metrics.go to put data in DB
-//  TODO: Set up Database Package to get data from metrics.go
