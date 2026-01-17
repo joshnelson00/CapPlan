@@ -1,30 +1,40 @@
+# ingest_data.py
 import pandas as pd
 from sqlalchemy import create_engine
 import json
 
-# Load database config
-with open('../config/db.config', 'r') as f:
-    db_config = json.load(f)
 
-# Create SQLAlchemy connection string
-connection_string = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['dbname']}"
+def load_metrics_df(limit: int = 10) -> pd.DataFrame:
+    # Load database config
+    with open('../config/db.config', 'r') as f:
+        db_config = json.load(f)
 
-# Create SQLAlchemy engine
-engine = create_engine(connection_string)
+    connection_string = (
+        f"postgresql://{db_config['user']}:{db_config['password']}"
+        f"@{db_config['host']}:{db_config['port']}/{db_config['dbname']}"
+    )
 
-# Query data
-query = ''' SELECT * 
-            FROM metrics 
-            WHERE value > 100 LIMIT 10; '''
+    engine = create_engine(connection_string)
 
-df = pd.read_sql_query(query, con=engine)
-# Clean/Format Data
-df_expanded = pd.DataFrame(df['labels'].tolist())
-df = pd.concat([df.drop('labels', axis=1), df_expanded], axis=1)
-df = df.drop(columns = ['__name__'])
+    query = f"""
+        SELECT *
+        FROM metrics
+        WHERE value > 100
+        LIMIT {limit};
+    """
 
-print(df)
+    df = pd.read_sql_query(query, con=engine)
+
+    # Expand labels JSON
+    df_expanded = pd.DataFrame(df["labels"].tolist())
+    df = pd.concat([df.drop("labels", axis=1), df_expanded], axis=1)
+    df = df.drop(columns=["__name__"], errors="ignore")
+
+    engine.dispose()
+    return df
 
 
-# Close the connection
-engine.dispose()
+if __name__ == "__main__":
+    df = load_metrics_df()
+    print(df.head())
+
