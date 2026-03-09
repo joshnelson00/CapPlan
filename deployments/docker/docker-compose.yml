@@ -1,0 +1,17 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: capplan-db
+    environment:
+      POSTGRES_USER: capplan
+      POSTGRES_PASSWORD: capplan_dev_password
+      POSTGRES_DB: capplan
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+volumes:
+  timescaledb_data:

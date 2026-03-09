@@ -1,0 +1,133 @@
+# ── CPU ──────────────────────────────────────────────────────
+# Total CPU time by mode (user/system/idle/iowait/steal/irq).
+# Derive utilisation with: 1 - rate(idle). iowait = I/O-bound.
+# steal > 0 on VMs means hypervisor is throttling you.
+node_cpu_seconds_total
+
+# 1/5/15-min load averages. Sustained value > nproc = saturation.
+node_load1
+node_load5
+node_load15
+
+# Current scaled frequency per core — distinguishes P-core vs E-core usage.
+# P-cores cpu0-15 (max ~5.8GHz), E-cores cpu16-31 (max ~4.1GHz).
+node_cpu_scaling_frequency_hertz
+node_cpu_frequency_max_hertz
+
+# Context switches / interrupts — spikes = scheduler / NIC pressure.
+node_context_switches_total
+node_intr_total
+
+# ── Memory ───────────────────────────────────────────────────
+# Total RAM — denominator for all memory utilisation ratios.
+node_memory_MemTotal_bytes
+
+# True available memory (free + reclaimable). Best memory signal.
+node_memory_MemAvailable_bytes
+
+# Dirty pages queued for writeback — high = write I/O saturation.
+node_memory_Dirty_bytes
+
+# Pages paged in/out — softer memory pressure warning than swap.
+node_vmstat_pgpgin
+node_vmstat_pgpgout
+
+# Major page faults (went to disk). Direct memory pressure signal.
+node_vmstat_pgmajfault
+
+# ── Filesystem ───────────────────────────────────────────────
+# Available and total bytes per mount. Primary storage runway metric.
+node_filesystem_avail_bytes
+node_filesystem_size_bytes
+
+# Inode usage — can exhaust before bytes on log-heavy systems.
+node_filesystem_files_free
+node_filesystem_files
+
+# ── Disk I/O ─────────────────────────────────────────────────
+# Bytes read/written — throughput trend for capacity forecasting.
+node_disk_read_bytes_total
+node_disk_written_bytes_total
+
+# I/O time — compute utilisation (iostat %util = rate / 1s).
+node_disk_io_time_seconds_total
+
+# Weighted I/O time — proxy for average queue depth (avgqu-sz).
+node_disk_io_time_weighted_seconds_total
+
+# Read/write latency and IOPS — isolate seek vs transfer bottlenecks.
+node_disk_read_time_seconds_total
+node_disk_write_time_seconds_total
+node_disk_reads_completed_total
+node_disk_writes_completed_total
+
+# ── Network ──────────────────────────────────────────────────
+# Bytes in/out — bandwidth utilisation trend per interface.
+node_network_receive_bytes_total
+node_network_transmit_bytes_total
+
+# Drops — NIC buffer exhaustion or CPU RX starvation.
+node_network_receive_drop_total
+node_network_transmit_drop_total
+
+# Errors — hardware or driver faults.
+node_network_receive_errs_total
+node_network_transmit_errs_total
+
+
+# ── System ───────────────────────────────────────────────────
+# Open FD count vs limit — exhaustion causes EMFILE application errors.
+node_filefd_allocated
+node_filefd_maximum
+
+# Running / blocked process counts — trend for workload scaling.
+node_procs_running
+node_procs_blocked
+
+# Boot time — detect unexpected reboots in your time-series.
+node_boot_time_seconds
+
+# ── Pressure Stall Information (PSI) ─────────────────────────
+# Linux PSI: fraction of time tasks stalled waiting for a resource.
+# The highest-signal saturation metric available (requires Linux 4.20+).
+node_pressure_cpu_waiting_seconds_total
+node_pressure_memory_waiting_seconds_total
+node_pressure_memory_stalled_seconds_total
+node_pressure_io_waiting_seconds_total
+node_pressure_io_stalled_seconds_total
+
+# ── CPU Frequency & Scheduler ────────────────────────────────
+# Per-CPU time actually running vs waiting in the run queue.
+# More precise than load averages: shows WHERE the bottleneck is per core.
+node_schedstat_running_seconds_total
+node_schedstat_waiting_seconds_total
+
+# ── Thermal ──────────────────────────────────────────────────
+# Package temperature — thermal throttling silently reduces capacity.
+# Throttling begins near 100°C; current baseline ~58°C.
+node_hwmon_temp_celsius
+
+# ── Power / Battery ──────────────────────────────────────────
+# Key ML feature: AC vs battery changes CPU boost behaviour entirely.
+# On battery the governor stays in powersave, capping clock speeds.
+node_power_supply_online
+node_power_supply_capacity
+node_power_supply_power_watt
+
+# ── Disk Health ───────────────────────────────────────────────
+# Discard ops — high rate = SSD TRIM/GC load (affects write latency).
+node_disk_discards_completed_total
+# I/Os currently in flight — instantaneous queue depth.
+node_disk_io_now
+
+# ── TCP Health ────────────────────────────────────────────────
+# Retransmits indicate network saturation or congestion on wlp18s0.
+node_netstat_Tcp_RetransSegs
+node_netstat_TcpExt_TCPSynRetrans
+# Current established connections — workload scaling signal.
+node_netstat_Tcp_CurrEstab
+
+# ── Memory Pressure Detail ────────────────────────────────────
+# OOM kills — hardest possible memory saturation signal.
+# Machine has no swap so OOM killer fires instead of swapping.
+node_vmstat_oom_kill
